@@ -483,8 +483,8 @@ always@(posedge sys_clk or negedge sys_rst_n)
 always@(posedge sys_clk or negedge sys_rst_n)
     if(sys_rst_n == 1'b0)
         frame_valid <= 1'b0;
-    else    if((cnt_col == (image_size - 9'd1)) && (pi_data_valid == 1'b1) && (cnt_row == (image_size - 1'b1)))  //丢失最后两个数据
-    //else    if((~rd_en) && rd_en_reg == 1'b1)    //下一帧图像丢失两个数据
+    else    if((cnt_col == (image_size - 9'd1)) && (pi_data_valid == 1'b1) && (cnt_row == (image_size - 1'b1)))
+    //else    if((~rd_en) && rd_en_reg == 1'b1) 
         frame_valid <= 1'b1;
     else
         frame_valid <= 1'b0;
