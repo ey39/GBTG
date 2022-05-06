@@ -1,4 +1,4 @@
-module  conv_ctrl_test_1
+module  conv_ctrl_test
 (
     input   wire                      sys_clk      ,
     input   wire                      sys_rst_n    ,
@@ -19,7 +19,8 @@ module  conv_ctrl_test_1
     input   wire    signed    [15:0]  bias         ,
     
     output  reg     signed    [15:0]  po_data      ,
-    output  reg                       po_data_valid
+    output  reg                       po_data_valid,
+    output  reg                       frame_valid     //一帧图像结束
 );
 
 //parameter    CNT_COL_MAX = image_size ;
@@ -47,8 +48,8 @@ reg                     rd_en_reg1  ;
 //reg                     rd_en_reg4  ;
 reg     signed   [15:0]  dout1_reg   ;
 reg     signed   [15:0]  dout2_reg   ;
-reg     signed   [15:0]  pi_data_buf ;
-reg     signed   [15:0]  pi_data_buf1;
+//reg     signed   [15:0]  pi_data_buf ;
+//reg     signed   [15:0]  pi_data_buf1;
 reg     signed   [15:0]  pi_data_reg ;
 reg     signed   [15:0]  a1          ;
 reg     signed   [15:0]  a2          ;
@@ -64,11 +65,11 @@ wire    signed   [32:0]  buffer1_2   ;
 wire    signed   [32:0]  buffer1_3   ;
 wire    signed   [32:0]  buffer1_4   ;
 wire    signed   [32:0]  buffer1_5   ;
-reg   signed   [32:0]  buffer1_1_reg   ;
-reg   signed   [32:0]  buffer1_2_reg   ;
-reg   signed   [32:0]  buffer1_3_reg   ;
-reg   signed   [32:0]  buffer1_4_reg   ;
-reg   signed   [32:0]  buffer1_5_reg   ;
+reg     signed   [32:0]  buffer1_1_reg   ;
+reg     signed   [32:0]  buffer1_2_reg   ;
+reg     signed   [32:0]  buffer1_3_reg   ;
+reg     signed   [32:0]  buffer1_4_reg   ;
+reg     signed   [32:0]  buffer1_5_reg   ;
 reg     signed   [33:0]  buffer2_1   ;
 reg     signed   [33:0]  buffer2_2   ;
 reg     signed   [33:0]  buffer2_3   ;
@@ -151,7 +152,7 @@ always@(posedge sys_clk or negedge sys_rst_n)
 always@(posedge sys_clk or negedge sys_rst_n)
     if(sys_rst_n == 1'b0)
         wr_data_2 <= 16'd0;
-    else    if(cnt_row >= 9'd1 && (cnt_row <= (image_size - 1'b1)) && pi_data_valid == 1'b1)
+    else    if(cnt_row >= 9'd1 && (cnt_row <= (image_size - 9'd2)) && pi_data_valid == 1'b1)
         wr_data_2 <= pi_data;
     else
         wr_data_2 <= wr_data_2;
@@ -160,7 +161,8 @@ always@(posedge sys_clk or negedge sys_rst_n)
 always@(posedge sys_clk or negedge sys_rst_n)
     if(sys_rst_n == 1'b0)
         rd_en <= 1'b0;
-    else    if(cnt_row >= 9'd2 && (cnt_row <= (image_size - 1'b1)) && pi_data_valid == 1'b1)
+    //else    if((cnt_row >= 9'd2 ||(cnt_row == 9'd1 && cnt_col >= image_size - 9'd2)/*&& (cnt_row <= (image_size - 1'b1))*/) && pi_data_valid == 1'b1)
+    else    if(((cnt_row >= 9'd2 && cnt_row <= image_size - 9'd2) ||(cnt_row == 9'd1 && cnt_col >= image_size - 9'd2) || (cnt_row == image_size - 9'd1 && cnt_col < image_size - 9'd2)) && pi_data_valid == 1'b1)
         rd_en <= 1'b1;
     else
         rd_en <= 1'b0;
@@ -256,7 +258,7 @@ always@(posedge sys_clk or negedge sys_rst_n)
         dout2_reg <= dout2_reg;
 
 //跟fifo保持同步
-always@(posedge sys_clk or negedge sys_rst_n)
+/*always@(posedge sys_clk or negedge sys_rst_n)
     if(sys_rst_n == 1'b0)
         pi_data_buf <= 16'd0;
     else
@@ -266,13 +268,13 @@ always@(posedge sys_clk or negedge sys_rst_n)
     if(sys_rst_n == 1'b0)
         pi_data_buf1 <= 16'd0;
     else
-        pi_data_buf1 <=  pi_data_buf;
+        pi_data_buf1 <=  pi_data_buf;*/
         
 always@(posedge sys_clk or negedge sys_rst_n)
     if(sys_rst_n == 1'b0)
         pi_data_reg <= 16'd0;
     else    if(rd_en_reg == 1'b1)
-        pi_data_reg <= pi_data_buf1;
+        pi_data_reg <= pi_data;
     else
         pi_data_reg <= pi_data_reg;   
 
@@ -477,11 +479,20 @@ always@(posedge sys_clk or negedge sys_rst_n)
         po_data <= buffer4_11;
     else
         po_data <= po_data;
+        
+always@(posedge sys_clk or negedge sys_rst_n)
+    if(sys_rst_n == 1'b0)
+        frame_valid <= 1'b0;
+    else    if((cnt_col == (image_size - 9'd1)) && (pi_data_valid == 1'b1) && (cnt_row == (image_size - 1'b1)))  //丢失最后两个数据
+    //else    if((~rd_en) && rd_en_reg == 1'b1)    //下一帧图像丢失两个数据
+        frame_valid <= 1'b1;
+    else
+        frame_valid <= 1'b0;
 
 fifo fifo_inst1
 (
   .clk          (sys_clk),       // input
-  .rst          (~sys_rst_n),    // input
+  .rst          ((~sys_rst_n) || frame_valid),    // input
   .wr_en        (wr_en_1),       // input
   .wr_data      (wr_data_1),     // input [15:0]
   .wr_full      (),              // output
@@ -496,7 +507,7 @@ fifo fifo_inst1
 fifo fifo_inst2
 (
   .clk          (sys_clk),        // input
-  .rst          (~sys_rst_n),     // input
+  .rst          ((~sys_rst_n) || frame_valid),     // input
   .wr_en        (wr_en_2),        // input
   .wr_data      (wr_data_2),      // input [15:0]
   .wr_full      (),               // output
