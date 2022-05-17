@@ -48,6 +48,7 @@ initial
         pi_weight_valid <= 1'b0;
     end
 
+
 always@(posedge sys_clk or negedge sys_rst_n)
     if(sys_rst_n == 1'b0)
         begin
@@ -56,8 +57,11 @@ always@(posedge sys_clk or negedge sys_rst_n)
         end
     else
         begin
-            pi_weight <= 16'd1;
-            pi_data <= $random % 10;       
+            pi_weight <= 'b0000_0010_0000_0000;     //
+            //pi_weight <= 'b1111_1111_0000_0000;
+            //pi_data <= 512 + $random % 10;   
+            pi_data <= 'b1111_1100_0000_0000;      //
+            //pi_data <= 1;  
         end
 
 
@@ -71,8 +75,8 @@ conv_top conv_top_inst
    .pi_data_valid   (pi_data_valid  ),
    .pi_data         (pi_data        ),
    //.frame_num       (10'd5          ),
-   .average        (16'd1           ),
-   .std            (16'd2           ),
+   .average        ('b100000000     ),
+   .std            ('b1000000000    ),
 
    .map_out         (map_out        ), 
    .map_out_valid   (map_out_valid  )
