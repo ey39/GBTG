@@ -11,8 +11,7 @@ module conv_top
     input   wire    signed    [15:0]    std             ,   //标准差
     
     output  wire    signed    [15:0]    map_out         , 
-    output  reg                         map_out_valid   ,
-    output  reg                         reset
+    output  reg                         map_out_valid   
 );
 
 
@@ -20,13 +19,17 @@ wire    weights_ready;
 wire    frame_valid;
 wire    signed  [15:0]  po_data;
 wire                    po_data_valid;
+wire    signed  [32:0]  map_out1;
 
 reg             [2:0]       state;
 reg                         conv_start;
 reg                         conv_end;
 reg     signed  [15:0]      pi_data_reg;
 reg     signed  [15:0]      po_data_reg;
-reg                         po_data_valid1;    
+reg     signed  [15:0]      po_data_reg1;
+reg                         po_data_valid1; 
+reg                         po_data_valid2;   
+
 
 wire    signed [15:0] 	weights_1_1;
 wire    signed [15:0] 	weights_1_2;
@@ -130,6 +133,7 @@ always@(posedge sys_clk or negedge sys_rst_n)
         po_data_reg <= po_data - average;
     else
         po_data_reg <= po_data_reg;
+
         
 always@(posedge sys_clk or negedge sys_rst_n)
     if(sys_rst_n == 1'b0)
@@ -139,28 +143,51 @@ always@(posedge sys_clk or negedge sys_rst_n)
     else
         po_data_valid1 <= 1'b0;
 
+always@(posedge sys_clk or negedge sys_rst_n)
+    if(sys_rst_n == 1'b0)
+        po_data_reg1 <= 16'd0;
+    else    if(po_data_reg[15] == 1'b0 && po_data[15] == 1'b1 && po_data_valid1 == 1'b1)
+        po_data_reg1 <= -16'd32768;
+    else    if(po_data_reg[15] == 1'b1 && po_data[15] == 1'b0 && po_data_valid1 == 1'b1)
+        po_data_reg1 <= 16'd32767;
+    else
+        po_data_reg1 <= po_data_reg;
+    
+
+always@(posedge sys_clk or negedge sys_rst_n)
+    if(sys_rst_n == 1'b0)
+        po_data_valid2 <= 1'b0;
+    else    if(po_data_valid1 == 1'b1)
+        po_data_valid2 <= 1'b1;
+    else
+        po_data_valid2 <= 1'b0;
+        
 
         
 always@(posedge sys_clk or negedge sys_rst_n)
     if(sys_rst_n == 1'b0)
         map_out_valid <= 1'b0;
-    else    if(po_data_valid1 == 1'b1)
+    else    if(po_data_valid2 == 1'b1)
         map_out_valid <= 1'b1;
     else
         map_out_valid <= 1'b0;
 
+assign map_out = {map_out1[32],map_out1[22:8]};
+
+
+
 
 multiply_adder multiply_adder_inst
 (
-  .a0(po_data_reg),            // input [15:0]
+  .a0(po_data_reg1),            // input [15:0]
   .a1(16'd0),            // input [15:0]
   .b0(std),       // input [15:0]
   .b1(16'd0),       // input [15:0]
   .clk(sys_clk),      // input
   .rst(~sys_rst_n),   // input
-  .ce(po_data_valid1),      // input
+  .ce(po_data_valid2),      // input
   .addsub(1'b0),      // input
-  .p(map_out)       // output [32:0]
+  .p(map_out1)       // output [32:0]
 ); 
 
  
